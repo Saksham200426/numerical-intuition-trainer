@@ -7,41 +7,41 @@ import {
 } from '../utils/mathUtils';
 import { recordQuizResult } from '../utils/storageUtils';
  
-const TOTAL_QUESTIONS = 10;
-const TIME_PER_Q = { easy: 30, medium: 20, hard: 12 };
- 
 const MODE_META = {
-  table: { label: 'Tables Quiz', icon: '×', accent: 'amber', gen: generateTableQuestion },
+  table:  { label: 'Tables Quiz',  icon: '×', accent: 'amber',   gen: generateTableQuestion },
   square: { label: 'Squares Quiz', icon: '²', accent: 'emerald', gen: generateSquareQuestion },
-  cube: { label: 'Cubes Quiz', icon: '³', accent: 'violet', gen: generateCubeQuestion },
-  mixed: { label: 'Mixed Quiz', icon: '∞', accent: 'rose', gen: generateMixedQuestion },
+  cube:   { label: 'Cubes Quiz',   icon: '³', accent: 'violet',  gen: generateCubeQuestion },
+  mixed:  { label: 'Mixed Quiz',   icon: '∞', accent: 'rose',    gen: generateMixedQuestion },
 };
  
-export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
-  const [question, setQuestion] = useState(null);
-  const [questionNum, setQuestionNum] = useState(1);
-  const [score, setScore] = useState(0);
-  const [streak, setStreak] = useState(0);
-  const [bestStreak, setBestStreak] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(TIME_PER_Q[difficulty]);
-  const [feedback, setFeedback] = useState(null); // null | 'correct' | 'wrong'
+export default function QuizComponent({ mode, difficulty, totalQuestions = 10, timePerQuestion = 20, onBack, onFinish }) {
+  const [question, setQuestion]           = useState(null);
+  const [questionNum, setQuestionNum]     = useState(1);
+  const [score, setScore]                 = useState(0);
+  const [streak, setStreak]               = useState(0);
+  const [bestStreak, setBestStreak]       = useState(0);
+  const [timeLeft, setTimeLeft]           = useState(timePerQuestion);
+  const [feedback, setFeedback]           = useState(null);
   const [selectedOption, setSelectedOption] = useState(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [results, setResults] = useState([]);
-  const [shake, setShake] = useState(false);
-  const timerRef = useRef(null);
-  const streakRef = useRef(0);
+  const [results, setResults]             = useState([]);
+  const [shake, setShake]                 = useState(false);
+ 
+  const timerRef      = useRef(null);
+  const streakRef     = useRef(0);
   const bestStreakRef = useRef(0);
   const meta = MODE_META[mode] || MODE_META.table;
  
+  const diffLabel = difficulty === 'custom' ? 'custom' : difficulty;
+ 
   const loadQuestion = useCallback(() => {
-    const q = meta.gen(difficulty);
+    const q = meta.gen(difficulty === 'custom' ? 'medium' : difficulty);
     setQuestion(q);
     setFeedback(null);
     setSelectedOption(null);
-    setTimeLeft(TIME_PER_Q[difficulty]);
+    setTimeLeft(timePerQuestion);
     setIsTransitioning(false);
-  }, [mode, difficulty]);
+  }, [mode, difficulty, timePerQuestion]);
  
   useEffect(() => {
     loadQuestion();
@@ -71,7 +71,7 @@ export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
     setShake(true);
     setTimeout(() => setShake(false), 500);
     setResults(r => [...r, { question, correct: false, timedOut: true }]);
-    scheduleNext(false); // ✅ FIX: false pass karo
+    scheduleNext(false);
   }
  
   function handleAnswer(opt) {
@@ -83,7 +83,6 @@ export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
     if (isCorrect) {
       setFeedback('correct');
       setScore(s => s + 1);
-      // ✅ FIX: refs se seedha compute karo, setState ke bahar
       streakRef.current += 1;
       bestStreakRef.current = Math.max(bestStreakRef.current, streakRef.current);
       setStreak(streakRef.current);
@@ -96,17 +95,16 @@ export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
       setTimeout(() => setShake(false), 500);
     }
     setResults(r => [...r, { question, chosen: opt, correct: isCorrect }]);
-    scheduleNext(isCorrect); // ✅ FIX: isCorrect pass karo
+    scheduleNext(isCorrect);
   }
  
-  function scheduleNext(isCorrect) { // ✅ FIX: parameter add kiya
+  function scheduleNext(isCorrect) {
     setIsTransitioning(true);
     setTimeout(() => {
-      if (questionNum >= TOTAL_QUESTIONS) {
-        // ✅ FIX: stale 'feedback' state use nahi, seedha isCorrect parameter use karo
+      if (questionNum >= totalQuestions) {
         const finalScore = results.filter(r => r.correct).length + (isCorrect ? 1 : 0);
-        recordQuizResult({ mode, difficulty, correct: finalScore, total: TOTAL_QUESTIONS, streak: bestStreakRef.current });
-        onFinish({ score: finalScore, total: TOTAL_QUESTIONS, results, bestStreak: bestStreakRef.current, mode, difficulty }); // ✅ FIX: ref use karo
+        recordQuizResult({ mode, difficulty: diffLabel, correct: finalScore, total: totalQuestions, streak: bestStreakRef.current });
+        onFinish({ score: finalScore, total: totalQuestions, results, bestStreak: bestStreakRef.current, mode, difficulty: diffLabel });
       } else {
         setQuestionNum(n => n + 1);
         loadQuestion();
@@ -116,9 +114,14 @@ export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
  
   if (!question) return <div className="flex items-center justify-center h-64"><LoadingSpinner /></div>;
  
-  const timePercent = (timeLeft / TIME_PER_Q[difficulty]) * 100;
-  const timerColor = timePercent > 50 ? 'bg-emerald-500' : timePercent > 25 ? 'bg-amber-500' : 'bg-rose-500';
-  const accentMap = { amber: 'text-amber-600 dark:text-amber-400', emerald: 'text-emerald-600 dark:text-emerald-400', violet: 'text-violet-600 dark:text-violet-400', rose: 'text-rose-500 dark:text-rose-400' };
+  const timePercent = (timeLeft / timePerQuestion) * 100;
+  const timerColor  = timePercent > 50 ? 'bg-emerald-500' : timePercent > 25 ? 'bg-amber-500' : 'bg-rose-500';
+  const accentMap   = {
+    amber:   'text-amber-600 dark:text-amber-400',
+    emerald: 'text-emerald-600 dark:text-emerald-400',
+    violet:  'text-violet-600 dark:text-violet-400',
+    rose:    'text-rose-500 dark:text-rose-400',
+  };
  
   return (
     <div className="max-w-lg mx-auto">
@@ -136,7 +139,7 @@ export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
               <span className="flame-animate">🔥</span> {streak}
             </div>
           )}
-          <span className="text-ink-400 dark:text-ink-500 text-sm font-mono">{questionNum}/{TOTAL_QUESTIONS}</span>
+          <span className="text-ink-400 dark:text-ink-500 text-sm font-mono">{questionNum}/{totalQuestions}</span>
         </div>
       </div>
  
@@ -144,7 +147,7 @@ export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
       <div className="h-1 rounded-full bg-ink-100 dark:bg-ink-800 mb-6 overflow-hidden">
         <div
           className="h-full rounded-full bg-ink-900 dark:bg-ink-100 transition-all duration-300"
-          style={{ width: `${(questionNum / TOTAL_QUESTIONS) * 100}%` }}
+          style={{ width: `${(questionNum / totalQuestions) * 100}%` }}
         />
       </div>
  
@@ -164,7 +167,6 @@ export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
           shake ? 'animate-shake' : ''
         } ${feedback === 'correct' ? 'animate-correct-pulse' : feedback === 'wrong' || feedback === 'timeout' ? 'animate-wrong-pulse' : ''}`}
       >
-        {/* Mode badge */}
         <span className={`inline-block text-xs font-display font-semibold px-2.5 py-1 rounded-full bg-ink-100 dark:bg-ink-800 ${accentMap[meta.accent]} mb-4`}>
           {meta.label}
         </span>
@@ -180,7 +182,6 @@ export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
           </div>
         </div>
  
-        {/* Question */}
         <p className="font-display font-bold text-4xl sm:text-5xl text-ink-900 dark:text-ink-50 mb-2">
           {question.question}
         </p>
@@ -205,13 +206,13 @@ export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
       <div className="grid grid-cols-2 gap-3">
         {question.options.map((opt, i) => {
           const isSelected = selectedOption === opt;
-          const isCorrect = opt === question.answer;
+          const isCorrect  = opt === question.answer;
           let btnClass = 'bg-white dark:bg-ink-900 border-ink-200 dark:border-ink-700 text-ink-900 dark:text-ink-100 hover:border-ink-400 dark:hover:border-ink-500 hover:shadow-sm';
  
           if (feedback !== null) {
-            if (isCorrect) btnClass = 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-400 text-emerald-700 dark:text-emerald-300';
-            else if (isSelected && !isCorrect) btnClass = 'bg-rose-50 dark:bg-rose-900/30 border-rose-400 text-rose-600 dark:text-rose-400';
-            else btnClass = 'bg-ink-50 dark:bg-ink-800/50 border-ink-100 dark:border-ink-800 text-ink-400 dark:text-ink-600';
+            if (isCorrect)       btnClass = 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-400 text-emerald-700 dark:text-emerald-300';
+            else if (isSelected) btnClass = 'bg-rose-50 dark:bg-rose-900/30 border-rose-400 text-rose-600 dark:text-rose-400';
+            else                 btnClass = 'bg-ink-50 dark:bg-ink-800/50 border-ink-100 dark:border-ink-800 text-ink-400 dark:text-ink-600';
           }
  
           return (
@@ -223,7 +224,7 @@ export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
               style={{ animationDelay: `${i * 0.05}s` }}
             >
               {opt}
-              {feedback !== null && isCorrect && <span className="ml-2 text-emerald-500">✓</span>}
+              {feedback !== null && isCorrect  && <span className="ml-2 text-emerald-500">✓</span>}
               {feedback !== null && isSelected && !isCorrect && <span className="ml-2 text-rose-400">✗</span>}
             </button>
           );
