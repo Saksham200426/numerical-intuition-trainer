@@ -1,5 +1,15 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
   <url>
     <loc>https://mathzap.vercel.app/</loc>
   </url>
+
+  <url>
+    <loc>https://mathzap.vercel.app/learn</loc>
+  </url>
+
+  <url>
+    <loc>https://mathzap.vercel.app/practice</loc>
+  </url>
+
 </urlset>
