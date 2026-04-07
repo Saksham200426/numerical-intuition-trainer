@@ -6,17 +6,17 @@ import {
   generateMixedQuestion,
 } from '../utils/mathUtils';
 import { recordQuizResult } from '../utils/storageUtils';
-
+ 
 const TOTAL_QUESTIONS = 10;
 const TIME_PER_Q = { easy: 30, medium: 20, hard: 12 };
-
+ 
 const MODE_META = {
   table: { label: 'Tables Quiz', icon: '×', accent: 'amber', gen: generateTableQuestion },
   square: { label: 'Squares Quiz', icon: '²', accent: 'emerald', gen: generateSquareQuestion },
   cube: { label: 'Cubes Quiz', icon: '³', accent: 'violet', gen: generateCubeQuestion },
   mixed: { label: 'Mixed Quiz', icon: '∞', accent: 'rose', gen: generateMixedQuestion },
 };
-
+ 
 export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
   const [question, setQuestion] = useState(null);
   const [questionNum, setQuestionNum] = useState(1);
@@ -31,7 +31,7 @@ export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
   const [shake, setShake] = useState(false);
   const timerRef = useRef(null);
   const meta = MODE_META[mode] || MODE_META.table;
-
+ 
   const loadQuestion = useCallback(() => {
     const q = meta.gen(difficulty);
     setQuestion(q);
@@ -40,11 +40,11 @@ export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
     setTimeLeft(TIME_PER_Q[difficulty]);
     setIsTransitioning(false);
   }, [mode, difficulty]);
-
+ 
   useEffect(() => {
     loadQuestion();
   }, [loadQuestion]);
-
+ 
   // Timer
   useEffect(() => {
     if (feedback !== null || isTransitioning) return;
@@ -60,7 +60,7 @@ export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
     }, 1000);
     return () => clearInterval(timerRef.current);
   }, [question, feedback, isTransitioning]);
-
+ 
   function handleTimeout() {
     clearInterval(timerRef.current);
     setFeedback('timeout');
@@ -68,15 +68,15 @@ export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
     setShake(true);
     setTimeout(() => setShake(false), 500);
     setResults(r => [...r, { question, correct: false, timedOut: true }]);
-    scheduleNext();
+    scheduleNext(false); // ✅ FIX: false pass karo
   }
-
+ 
   function handleAnswer(opt) {
     if (feedback !== null) return;
     clearInterval(timerRef.current);
     setSelectedOption(opt);
     const isCorrect = opt === question.answer;
-
+ 
     if (isCorrect) {
       setFeedback('correct');
       setScore(s => s + 1);
@@ -92,15 +92,15 @@ export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
       setTimeout(() => setShake(false), 500);
     }
     setResults(r => [...r, { question, chosen: opt, correct: isCorrect }]);
-    scheduleNext();
+    scheduleNext(isCorrect); // ✅ FIX: isCorrect pass karo
   }
-
-  function scheduleNext() {
+ 
+  function scheduleNext(isCorrect) { // ✅ FIX: parameter add kiya
     setIsTransitioning(true);
     setTimeout(() => {
       if (questionNum >= TOTAL_QUESTIONS) {
-        // Save and finish
-        const finalScore = results.filter(r => r.correct).length + (feedback === 'correct' ? 1 : 0);
+        // ✅ FIX: stale 'feedback' state use nahi, seedha isCorrect parameter use karo
+        const finalScore = results.filter(r => r.correct).length + (isCorrect ? 1 : 0);
         recordQuizResult({ mode, difficulty, correct: finalScore, total: TOTAL_QUESTIONS, streak: bestStreak });
         onFinish({ score: finalScore, total: TOTAL_QUESTIONS, results, bestStreak, mode, difficulty });
       } else {
@@ -109,13 +109,13 @@ export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
       }
     }, 1200);
   }
-
+ 
   if (!question) return <div className="flex items-center justify-center h-64"><LoadingSpinner /></div>;
-
+ 
   const timePercent = (timeLeft / TIME_PER_Q[difficulty]) * 100;
   const timerColor = timePercent > 50 ? 'bg-emerald-500' : timePercent > 25 ? 'bg-amber-500' : 'bg-rose-500';
   const accentMap = { amber: 'text-amber-600 dark:text-amber-400', emerald: 'text-emerald-600 dark:text-emerald-400', violet: 'text-violet-600 dark:text-violet-400', rose: 'text-rose-500 dark:text-rose-400' };
-
+ 
   return (
     <div className="max-w-lg mx-auto">
       {/* Top bar */}
@@ -135,7 +135,7 @@ export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
           <span className="text-ink-400 dark:text-ink-500 text-sm font-mono">{questionNum}/{TOTAL_QUESTIONS}</span>
         </div>
       </div>
-
+ 
       {/* Progress bar */}
       <div className="h-1 rounded-full bg-ink-100 dark:bg-ink-800 mb-6 overflow-hidden">
         <div
@@ -143,7 +143,7 @@ export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
           style={{ width: `${(questionNum / TOTAL_QUESTIONS) * 100}%` }}
         />
       </div>
-
+ 
       {/* Timer bar */}
       <div className="h-1.5 rounded-full bg-ink-100 dark:bg-ink-800 mb-6 overflow-hidden">
         <div
@@ -153,7 +153,7 @@ export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
           {timePercent > 30 && <div className="absolute inset-0 progress-shimmer" />}
         </div>
       </div>
-
+ 
       {/* Question Card */}
       <div
         className={`rounded-2xl border bg-white dark:bg-ink-900 border-ink-100 dark:border-ink-800 p-8 mb-5 text-center shadow-sm transition-all duration-300 ${
@@ -164,7 +164,7 @@ export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
         <span className={`inline-block text-xs font-display font-semibold px-2.5 py-1 rounded-full bg-ink-100 dark:bg-ink-800 ${accentMap[meta.accent]} mb-4`}>
           {meta.label}
         </span>
-
+ 
         {/* Timer display */}
         <div className="flex justify-center mb-4">
           <div className={`w-10 h-10 rounded-full flex items-center justify-center font-mono font-bold text-sm border-2 transition-colors ${
@@ -175,7 +175,7 @@ export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
             {timeLeft}
           </div>
         </div>
-
+ 
         {/* Question */}
         <p className="font-display font-bold text-4xl sm:text-5xl text-ink-900 dark:text-ink-50 mb-2">
           {question.question}
@@ -196,20 +196,20 @@ export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
           </p>
         )}
       </div>
-
+ 
       {/* Options */}
       <div className="grid grid-cols-2 gap-3">
         {question.options.map((opt, i) => {
           const isSelected = selectedOption === opt;
           const isCorrect = opt === question.answer;
           let btnClass = 'bg-white dark:bg-ink-900 border-ink-200 dark:border-ink-700 text-ink-900 dark:text-ink-100 hover:border-ink-400 dark:hover:border-ink-500 hover:shadow-sm';
-
+ 
           if (feedback !== null) {
             if (isCorrect) btnClass = 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-400 text-emerald-700 dark:text-emerald-300';
             else if (isSelected && !isCorrect) btnClass = 'bg-rose-50 dark:bg-rose-900/30 border-rose-400 text-rose-600 dark:text-rose-400';
             else btnClass = 'bg-ink-50 dark:bg-ink-800/50 border-ink-100 dark:border-ink-800 text-ink-400 dark:text-ink-600';
           }
-
+ 
           return (
             <button
               key={i}
@@ -225,7 +225,7 @@ export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
           );
         })}
       </div>
-
+ 
       {/* Score display */}
       <div className="flex items-center justify-center gap-4 mt-6 text-sm text-ink-500 dark:text-ink-400">
         <span className="font-display">Score: <strong className="text-ink-900 dark:text-ink-100">{score}</strong></span>
@@ -235,9 +235,10 @@ export default function QuizComponent({ mode, difficulty, onBack, onFinish }) {
     </div>
   );
 }
-
+ 
 function LoadingSpinner() {
   return (
     <div className="w-8 h-8 border-2 border-ink-200 dark:border-ink-700 border-t-amber-400 rounded-full animate-spin" />
   );
 }
+ 
