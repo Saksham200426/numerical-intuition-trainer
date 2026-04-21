@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import Navbar from './components/Navbar';
 import HomePage from './pages/HomePage';
 import LearnPage from './pages/LearnPage';
@@ -23,6 +24,7 @@ export default function App() {
       <main key={page} className="animate-fade-in">
         {pages[page] || pages.home}
       </main>
+      <Analytics />
     </div>
   );
 }
