@@ -22,7 +22,7 @@ export default function LearnPage() {
         </div>
 
         {/* Tab Bar */}
-        <div className="flex gap-2 mb-6 p-1 rounded-2xl bg-ink-100 dark:bg-ink-800 w-fit animate-slide-up" style={{ animationDelay: '0.05s' }}>
+        <div className="grid grid-cols-3 gap-1 mb-6 p-1 rounded-2xl bg-ink-100 dark:bg-ink-800 animate-slide-up" style={{ animationDelay: '0.05s' }}>
           {TABS.map(tab => {
             const active = activeTab === tab.id;
             const accentMap = {
